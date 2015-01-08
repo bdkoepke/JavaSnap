@@ -7,108 +7,59 @@ import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 
-/**
- * Author: samstern
- * Date: 12/28/13
- */
 public class Encryption {
+    private static final SecretKeySpec secretKeySpec = new SecretKeySpec("M02cnQ51Ji97vwT4".getBytes(), "AES");
+		private final Cipher cipher;
 
-    private static final String KEY_ALG = "AES";
-    private static final String AES_KEY = "M02cnQ51Ji97vwT4";
-    private static final String CIPHER_MODE = "AES/ECB/PKCS5Padding";
+		private static enum CryptMode {
+			ENCRYPT(Cipher.ENCRYPT_MODE),
+			DECRYPT(Cipher.DECRYPT_MODE);
+			private final int mode;
 
-    public static byte[] encrypt(byte[] data) throws EncryptionException {
+			int mode() {
+				return this.mode;
+			}
+			CryptMode(int mode) {
+				this.mode = mode;
+			}
+		}
 
-        // Get AES-ECB with the right padding
-        Cipher cipher = null;
-        try {
-            cipher = Cipher.getInstance(CIPHER_MODE, "BC"); //Try and use the BC provider for devices which throw key length errors.
-        } catch (NoSuchAlgorithmException e) {
+		private Encryption(Cipher cipher) {
+			this.cipher = cipher;
+		}
+
+		public static Encryption create() throws EncryptionException {
+    	final String CIPHER_MODE = "AES/ECB/PKCS5Padding";
+      Cipher cipher;
+      try {
+          cipher = Cipher.getInstance(CIPHER_MODE, "BC");
+      } catch (NoSuchPaddingException | NoSuchAlgorithmException e) {
+          throw new EncryptionException(e);
+      } catch (NoSuchProviderException none) {
+          try{
+            cipher = Cipher.getInstance(CIPHER_MODE);
+          }
+          catch(Exception e){
             throw new EncryptionException(e);
-        } catch (NoSuchPaddingException e) {
-            throw new EncryptionException(e);
-        } catch (NoSuchProviderException e) {
-            try{
-              cipher = Cipher.getInstance(CIPHER_MODE); //Use this if BC provider not found.
-            }
-            catch(Exception er){
-              throw new EncryptionException(er);
-            }
-        }
+          }
+      }
+			return new Encryption(cipher);
+		}
 
-        // Set the key
-        byte[] keyBytes = AES_KEY.getBytes();
-        SecretKeySpec secretKeySpec = new SecretKeySpec(keyBytes, KEY_ALG);
-
-        // Initialize the Cipher
-        try {
-            cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
-        } catch (InvalidKeyException e) {
-            throw new EncryptionException(e);
-        }
-
-        // Encrypt the data
-        try {
-            byte[] result = cipher.doFinal(data);
-            return result;
-        } catch (IllegalBlockSizeException e) {
-            throw new EncryptionException(e);
-        } catch (BadPaddingException e) {
-            throw new EncryptionException(e);
-        }
+    public byte[] encrypt(byte[] data) throws EncryptionException {
+			return crypt(CryptMode.ENCRYPT, data);
     }
 
-    public static byte[] decrypt(byte[] data) throws EncryptionException {
+    public byte[] decrypt(byte[] data) throws EncryptionException {
+			return crypt(CryptMode.DECRYPT, data);
+    }
 
-        Cipher cipher = null;
-        try {
-            cipher = Cipher.getInstance(CIPHER_MODE, "BC"); //Try and use the BC provider for devices which throw key length errors.
-        } catch (NoSuchAlgorithmException e) {
-            throw new EncryptionException(e);
-        } catch (NoSuchPaddingException e) {
-            throw new EncryptionException(e);
-        } catch (NoSuchProviderException e) {
-            try{
-              cipher = Cipher.getInstance(CIPHER_MODE); //Use this if BC provider not found.
-            }
-            catch(Exception er){
-              throw new EncryptionException(er);
-            }
-        }
-
-        byte[] keyBytes = AES_KEY.getBytes();
-        SecretKeySpec secretKeySpec = new SecretKeySpec(keyBytes, KEY_ALG);
-
-        // Only difference from encrypt method
+		private byte[] crypt(CryptMode mode, byte[] data) throws EncryptionException {
         try {
             cipher.init(Cipher.DECRYPT_MODE, secretKeySpec);
-        } catch (InvalidKeyException e) {
+            return cipher.doFinal(data);
+        } catch (InvalidKeyException | IllegalBlockSizeException | BadPaddingException e) {
             throw new EncryptionException(e);
         }
-
-        try {
-            byte[] result = cipher.doFinal(data);
-            return result;
-        } catch (IllegalBlockSizeException e) {
-            throw new EncryptionException(e);
-        } catch (BadPaddingException e) {
-            throw new EncryptionException(e);
-        }
-    }
-
-    public static class EncryptionException extends Exception {
-
-        private Exception cause;
-
-        public EncryptionException(Exception e) {
-            this.cause = e;
-        }
-
-        @Override
-        public void printStackTrace() {
-            cause.printStackTrace();
-            this.printStackTrace();
-        }
-    }
-
+		}
 }
